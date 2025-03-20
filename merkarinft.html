@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>メルカリNFT損益分岐点計算ツール（履歴付き）</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .result, .breakdown, .history-container {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+    }
+    .breakdown p {
+      margin: 5px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    button {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>メルカリNFT損益分岐点計算ツール</h1>
+  <p>仕入れ値（購入価格）を入力してください：</p>
+  <input type="number" id="purchasePrice" placeholder="例：10000" />
+  <button onclick="calculateBreakEven()">計算する</button>
+
+  <div class="result" id="result"></div>
+  <div class="breakdown" id="breakdown"></div>
+  
+  <h2>計算履歴</h2>
+  <div class="history-container" id="historyContainer">
+    <table id="historyTable">
+      <thead>
+        <tr>
+          <th>日時</th>
+          <th>仕入れ値 (円)</th>
+          <th>損益分岐点売値 (円)</th>
+          <th>手数料 (円)</th>
+          <th>実受取額 (円)</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody">
+        <!-- 履歴の行がここに追加されます -->
+      </tbody>
+    </table>
+    <button onclick="clearHistory()">履歴をクリア</button>
+  </div>
+
+  <script>
+    // ローカルストレージのキー
+    const HISTORY_KEY = 'calcHistory';
+
+    // ページ読み込み時に履歴を表示
+    window.onload = function() {
+      displayHistory();
+    };
+
+    // 手数料が小数点切り捨ての場合の損益分岐点を求める関数
+    function findBreakEvenPrice(purchasePrice) {
+      let sellingPrice = Math.ceil(purchasePrice);
+      while (true) {
+        let fee = Math.floor(sellingPrice * 0.1);
+        let received = sellingPrice - fee;
+        if (received >= purchasePrice) {
+          return { sellingPrice, fee, received };
+        }
+        sellingPrice++;
+      }
+    }
+
+    function calculateBreakEven() {
+      const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
+      
+      if (isNaN(purchasePrice) || purchasePrice <= 0) {
+        document.getElementById('result').innerText = '正しい仕入れ値を入力してください。';
+        document.getElementById('breakdown').innerText = '';
+        return;
+      }
+      
+      const resultData = findBreakEvenPrice(purchasePrice);
+      
+      document.getElementById('result').innerText = 
+        '損益分岐点の売値は ' + resultData.sellingPrice.toLocaleString() + ' 円 です。';
+      
+      document.getElementById('breakdown').innerHTML = `
+        <p>【内訳】</p>
+        <p>仕入れ値： ${purchasePrice.toLocaleString()} 円</p>
+        <p>計算式： 売値 - 手数料(=Math.floor(売値×0.1)) = 受取額</p>
+        <p>計算した売値： ${resultData.sellingPrice.toLocaleString()} 円</p>
+        <p>手数料（10％ 小数点切り捨て）： ${resultData.fee.toLocaleString()} 円</p>
+        <p>実際の受取額： ${resultData.received.toLocaleString()} 円</p>
+      `;
+      
+      // 履歴に追加するデータを作成
+      const now = new Date();
+      const historyEntry = {
+        datetime: now.toLocaleString(),
+        purchasePrice: purchasePrice,
+        sellingPrice: resultData.sellingPrice,
+        fee: resultData.fee,
+        received: resultData.received
+      };
+      
+      // 履歴をローカルストレージに保存
+      saveHistory(historyEntry);
+      
+      // 履歴表示の更新
+      displayHistory();
+    }
+
+    // ローカルストレージから履歴を取得し、テーブルに表示
+    function displayHistory() {
+      const historyBody = document.getElementById('historyBody');
+      historyBody.innerHTML = '';
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+      history.forEach(entry => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${entry.datetime}</td>
+          <td>${entry.purchasePrice.toLocaleString()}</td>
+          <td>${entry.sellingPrice.toLocaleString()}</td>
+          <td>${entry.fee.toLocaleString()}</td>
+          <td>${entry.received.toLocaleString()}</td>
+        `;
+        historyBody.appendChild(row);
+      });
+    }
+
+    // 新しい履歴エントリをローカルストレージに保存
+    function saveHistory(entry) {
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+      history.push(entry);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    }
+
+    // 履歴をクリアする関数
+    function clearHistory() {
+      localStorage.removeItem(HISTORY_KEY);
+      displayHistory();
+    }
+  </script>
+</body>
+</html>
