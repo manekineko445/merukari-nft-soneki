@@ -1,1 +1,0 @@
-# merukari-nft-soneki
